@@ -6,6 +6,10 @@ if not set -q VIRTUALFISH_ACTIVATION_FILE
     set -g VIRTUALFISH_ACTIVATION_FILE .venv
 end
 
+if not set -q VIRTUALFISH_PROJECT_FILE
+    set -g VIRTUALFISH_PROJECT_FILE .project
+end
+
 function __vf_workon --description "Work on a project"
     if [ (count $argv) -lt 1 ]
         echo "You must specify a project or virtual environment."
@@ -66,9 +70,20 @@ function __vf_cdproject --description "Change working directory to project direc
     end
 
     if set -q VIRTUAL_ENV
-        set -l project_name (basename $VIRTUAL_ENV)
-        if [ -d $PROJECT_HOME/$project_name ]
-            cd $PROJECT_HOME/$project_name
+        # Set default project path to the same name of current env
+        set PROJECT_PATH $PROJECT_HOME/(basename $VIRTUAL_ENV)
+
+        # Try to read specific project file in current env, if there's one
+        set PROJECT_FILE $VIRTUAL_ENV/$VIRTUALFISH_PROJECT_FILE
+        if [ -r "$PROJECT_FILE" ]
+            set -l TMP (cat $PROJECT_FILE)
+            if [ -d "$TMP" ]
+                set PROJECT_PATH $TMP
+            end
+        end
+
+        if [ -d $PROJECT_PATH ]
+            cd $PROJECT_PATH
         end
     end
 end
@@ -92,6 +107,14 @@ if set -q VIRTUALFISH_COMPAT_ALIASES
     end
 
     complete -x -c workon -a "(ls $PROJECT_HOME)"
+end
+
+function __vf_setproject --description "Set current directory as the default project for currently active environment"
+    if set -q VIRTUAL_ENV
+        pwd > {$VIRTUAL_ENV}/{$VIRTUALFISH_PROJECT_FILE}
+    else
+        echo "No virtualenv is active."
+    end
 end
 
 complete -x -c vf -n '__vfcompletion_using_command workon' -a "(ls $PROJECT_HOME)"
